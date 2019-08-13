@@ -238,6 +238,7 @@ zpoller_wait (zpoller_t *self, int timeout)
 
     return NULL;
 #else
+again:
     if (self->need_rebuild)
         s_rebuild_poll_set (self);
     int rc = zmq_poll (self->poll_set, (int) self->poll_size, timeout * ZMQ_POLL_MSEC);
@@ -246,6 +247,10 @@ zpoller_wait (zpoller_t *self, int timeout)
         for (reader = 0; reader < self->poll_size; reader++)
             if (self->poll_set [reader].revents & ZMQ_POLLIN)
                 return self->poll_readers [reader];
+    }
+    else
+    if (rc == -1 && errno == EINTR && self->nonstop) {
+        goto again;
     }
     else
     if (rc == -1 || (zsys_interrupted && !self->nonstop))
